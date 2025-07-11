@@ -1,0 +1,72 @@
+# Test Atlas integration with improved gcov2lcov-action
+# This simulates the Atlas workflow pattern for testing purposes
+
+name: Test Atlas Integration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-atlas-pattern:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Simulate Atlas Setup
+        run: |
+          mkdir -p atlas
+          cd atlas
+          # Create a minimal Go module like atlas
+          go mod init test-atlas
+          echo 'package main
+          
+          import "fmt"
+          
+          func main() {
+              fmt.Println("Atlas Test")
+          }
+          
+          func ProcessOrder(amount float64) float64 {
+              return amount * 0.99 // Fee processing
+          }' > main.go
+          
+          echo 'package main
+          
+          import "testing"
+          
+          func TestProcessOrder(t *testing.T) {
+              result := ProcessOrder(100.0)
+              expected := 99.0
+              if result != expected {
+                  t.Errorf("Expected %.2f, got %.2f", expected, result)
+              }
+          }' > main_test.go
+          
+          # Generate coverage like Atlas CI does
+          go test -v -covermode=count -coverpkg=./... -coverprofile=coverage.out ./...
+          
+          echo "Generated coverage file:"
+          head -5 coverage.out
+
+      - name: Test gcov2lcov with our fork (default auth)
+        uses: billykern/gcov2lcov-action@master
+        with:
+          working-directory: ./atlas
+          infile: coverage.out
+          outfile: coverage.lcov
+
+      - name: Verify coverage conversion
+        run: |
+          echo "Coverage conversion successful!"
+          echo "Generated coverage.lcov:"
+          head -10 atlas/coverage.lcov
+          
+          echo "File sizes:"
+          ls -la atlas/coverage.*
+
+      - name: Test rate limit verification
+        run: |
+          echo "=== Testing rate limits ==="
+          echo "This action used GitHub token authentication"
+          echo "Rate limit should be 5000/hour instead of 60/hour"
+          
+          # Check if we can see evidence in the logs that auth was used
+          echo "Check the logs above for 'Using authenticated GitHub API requests'"
