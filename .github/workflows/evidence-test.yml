@@ -1,0 +1,68 @@
+name: Evidence - Rate Limit Comparison
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-authenticated:
+    name: Test with Authentication
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init evidence-test
+          echo 'package main
+          func Add(a, b int) int { return a + b }' > main.go
+          echo 'package main
+          import "testing"
+          func TestAdd(t *testing.T) {
+              if Add(2, 3) != 5 { t.Error("failed") }
+          }' > main_test.go
+          go test -coverprofile=coverage.out
+      
+      - name: Test gcov2lcov with authentication (default github.token)
+        uses: ./
+        with:
+          working-directory: testdir
+
+  test-unauthenticated:
+    name: Test without Authentication  
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init evidence-test
+          echo 'package main
+          func Add(a, b int) int { return a + b }' > main.go
+          echo 'package main
+          import "testing"
+          func TestAdd(t *testing.T) {
+              if Add(2, 3) != 5 { t.Error("failed") }
+          }' > main_test.go
+          go test -coverprofile=coverage.out
+      
+      - name: Test gcov2lcov without authentication (empty token)
+        uses: ./
+        with:
+          working-directory: testdir
+          github-token: ""

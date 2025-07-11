@@ -37,10 +37,24 @@ runs:
         # Build authentication header if token is provided
         if [ -n "${{ inputs.github-token }}" ]; then
           echo "Using authenticated GitHub API requests for improved rate limits"
-          PACKAGE_URL=$(curl -H "Authorization: Bearer ${{ inputs.github-token }}" "$URL" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
+          # Capture headers and response separately for rate limit logging
+          RESPONSE_WITH_HEADERS=$(curl -i -H "Authorization: Bearer ${{ inputs.github-token }}" "$URL")
+          # Extract and log rate limit headers
+          echo "Rate limit headers from authenticated request:"
+          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"
+          # Extract JSON response (skip headers)
+          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n '/^{/,$p')
+          PACKAGE_URL=$(echo "$JSON_RESPONSE" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
         else
           echo "Using unauthenticated GitHub API requests"
-          PACKAGE_URL=$(curl "$URL" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
+          # Capture headers and response separately for rate limit logging  
+          RESPONSE_WITH_HEADERS=$(curl -i "$URL")
+          # Extract and log rate limit headers
+          echo "Rate limit headers from unauthenticated request:"
+          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"
+          # Extract JSON response (skip headers)
+          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n '/^{/,$p')
+          PACKAGE_URL=$(echo "$JSON_RESPONSE" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
         fi
         
         # starting with version v1.1.0 gcov2lcov changed it's artefact naming a bit.
