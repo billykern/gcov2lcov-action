@@ -1,0 +1,192 @@
+name: Test Authentication Features
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-default-auth:
+    name: Test Default GitHub Token
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init test
+          echo 'package main
+          
+          import "fmt"
+          
+          func main() {
+              fmt.Println("Hello, World!")
+          }
+          
+          func Add(a, b int) int {
+              return a + b
+          }' > main.go
+          
+          echo 'package main
+          
+          import "testing"
+          
+          func TestAdd(t *testing.T) {
+              result := Add(2, 3)
+              if result != 5 {
+                  t.Errorf("Expected 5, got %d", result)
+              }
+          }' > main_test.go
+          
+          go test -coverprofile=coverage.out
+          cat coverage.out
+      
+      - name: Test gcov2lcov with default auth
+        uses: ./
+        with:
+          working-directory: testdir
+          infile: coverage.out
+          outfile: coverage.lcov
+      
+      - name: Verify lcov file created
+        run: |
+          ls -la testdir/
+          cat testdir/coverage.lcov
+
+  test-explicit-auth:
+    name: Test Explicit GitHub Token
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init test
+          echo 'package main
+          
+          import "fmt"
+          
+          func main() {
+              fmt.Println("Hello, World!")
+          }
+          
+          func Add(a, b int) int {
+              return a + b
+          }' > main.go
+          
+          echo 'package main
+          
+          import "testing"
+          
+          func TestAdd(t *testing.T) {
+              result := Add(2, 3)
+              if result != 5 {
+                  t.Errorf("Expected 5, got %d", result)
+              }
+          }' > main_test.go
+          
+          go test -coverprofile=coverage.out
+      
+      - name: Test gcov2lcov with explicit auth
+        uses: ./
+        with:
+          working-directory: testdir
+          infile: coverage.out
+          outfile: coverage.lcov
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Verify lcov file created
+        run: |
+          ls -la testdir/
+          cat testdir/coverage.lcov
+
+  test-empty-token:
+    name: Test Empty Token Fallback
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init test
+          echo 'package main
+          
+          import "fmt"
+          
+          func main() {
+              fmt.Println("Hello, World!")
+          }
+          
+          func Add(a, b int) int {
+              return a + b
+          }' > main.go
+          
+          echo 'package main
+          
+          import "testing"
+          
+          func TestAdd(t *testing.T) {
+              result := Add(2, 3)
+              if result != 5 {
+                  t.Errorf("Expected 5, got %d", result)
+              }
+          }' > main_test.go
+          
+          go test -coverprofile=coverage.out
+      
+      - name: Test gcov2lcov with empty token
+        uses: ./
+        with:
+          working-directory: testdir
+          infile: coverage.out
+          outfile: coverage.lcov
+          github-token: ""
+      
+      - name: Verify lcov file created
+        run: |
+          ls -la testdir/
+          cat testdir/coverage.lcov
+
+  test-rate-limits:
+    name: Test Rate Limit Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test rate limits with auth
+        run: |
+          echo "=== Testing rate limits with authentication ==="
+          curl -I -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/jandelgado/gcov2lcov/releases/latest \
+            2>/dev/null | grep -i "x-ratelimit" || echo "No rate limit headers found"
+      
+      - name: Test rate limits without auth
+        run: |
+          echo "=== Testing rate limits without authentication ==="
+          curl -I https://api.github.com/repos/jandelgado/gcov2lcov/releases/latest \
+            2>/dev/null | grep -i "x-ratelimit" || echo "No rate limit headers found"
