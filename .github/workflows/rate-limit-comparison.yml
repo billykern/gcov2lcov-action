@@ -1,0 +1,122 @@
+name: Rate Limit Comparison Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ add-github-token-auth ]
+
+jobs:
+  upstream-baseline:
+    name: "Upstream Baseline (60/hour limit)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test branch
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init baseline-test
+          echo 'package main
+          func Add(a, b int) int { return a + b }' > main.go
+          echo 'package main
+          import "testing"
+          func TestAdd(t *testing.T) {
+              if Add(2, 3) != 5 { t.Error("failed") }
+          }' > main_test.go
+          go test -coverprofile=coverage.out
+      
+      - name: Test upstream action (no authentication)
+        uses: billykern/gcov2lcov-action@upstream-with-debug
+        with:
+          working-directory: testdir
+
+  authenticated-request:
+    name: "Authenticated Request (5000/hour limit)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout implementation
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init auth-test
+          echo 'package main
+          func Add(a, b int) int { return a + b }' > main.go
+          echo 'package main
+          import "testing"
+          func TestAdd(t *testing.T) {
+              if Add(2, 3) != 5 { t.Error("failed") }
+          }' > main_test.go
+          go test -coverprofile=coverage.out
+      
+      - name: Add debug logging to our action
+        run: |
+          # Add rate limit logging temporarily
+          sed -i 's|PACKAGE_URL=$(curl -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL"|RESPONSE=$(curl -i -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL")\
+          echo "=== AUTHENTICATED REQUEST RATE LIMIT HEADERS ==="\
+          echo "$RESPONSE" | grep -i "x-ratelimit" || echo "No rate limit headers found"\
+          echo "=== END RATE LIMIT HEADERS ==="\
+          JSON_RESPONSE=$(echo "$RESPONSE" | sed -n "/^{/,\$p")\
+          PACKAGE_URL=$(echo "$JSON_RESPONSE"|' action.yml
+      
+      - name: Test with authentication (default github.token)
+        uses: ./
+        with:
+          working-directory: testdir
+          # Uses default ${{ github.token }}
+
+  empty-token-fallback:
+    name: "Empty Token Fallback (60/hour limit)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout implementation
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init empty-test
+          echo 'package main
+          func Add(a, b int) int { return a + b }' > main.go
+          echo 'package main
+          import "testing"
+          func TestAdd(t *testing.T) {
+              if Add(2, 3) != 5 { t.Error("failed") }
+          }' > main_test.go
+          go test -coverprofile=coverage.out
+      
+      - name: Add debug logging to our action
+        run: |
+          # Add rate limit logging temporarily for unauthenticated path
+          sed -i 's|PACKAGE_URL=$(curl "$URL"|RESPONSE=$(curl -i "$URL")\
+          echo "=== EMPTY TOKEN FALLBACK RATE LIMIT HEADERS ==="\
+          echo "$RESPONSE" | grep -i "x-ratelimit" || echo "No rate limit headers found"\
+          echo "=== END RATE LIMIT HEADERS ==="\
+          JSON_RESPONSE=$(echo "$RESPONSE" | sed -n "/^{/,\$p")\
+          PACKAGE_URL=$(echo "$JSON_RESPONSE"|' action.yml
+      
+      - name: Test with empty token (fallback to unauthenticated)
+        uses: ./
+        with:
+          working-directory: testdir
+          github-token: ""  # Empty token should fallback gracefully
