@@ -2,6 +2,8 @@ name: Evidence - Rate Limit Comparison
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ evidence-capture ]
 
 jobs:
   test-authenticated:
