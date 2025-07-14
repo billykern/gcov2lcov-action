@@ -1,0 +1,84 @@
+name: Test Clean Implementation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ add-github-token-auth ]
+
+jobs:
+  test-authenticated-request:
+    name: "Authenticated Request (5000/hour limit)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init evidence-test
+          echo 'package main
+          func Add(a, b int) int { return a + b }' > main.go
+          echo 'package main
+          import "testing"
+          func TestAdd(t *testing.T) {
+              if Add(2, 3) != 5 { t.Error("failed") }
+          }' > main_test.go
+          go test -coverprofile=coverage.out
+      
+      - name: Test gcov2lcov with default authentication
+        uses: ./
+        with:
+          working-directory: testdir
+          # Uses default ${{ github.token }} for authentication
+
+  test-unauthenticated-request:
+    name: "Unauthenticated Request (60/hour limit)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init evidence-test
+          echo 'package main
+          func Add(a, b int) int { return a + b }' > main.go
+          echo 'package main
+          import "testing"
+          func TestAdd(t *testing.T) {
+              if Add(2, 3) != 5 { t.Error("failed") }
+          }' > main_test.go
+          go test -coverprofile=coverage.out
+      
+      - name: Test gcov2lcov with empty token
+        uses: ./
+        with:
+          working-directory: testdir
+          github-token: ""  # Empty token to simulate unauthenticated
+
+  capture-rate-limit-evidence:
+    name: "Rate Limit Evidence Capture"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test rate limits directly
+        run: |
+          echo "=== Authenticated Request Rate Limits ==="
+          curl -i -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/jandelgado/gcov2lcov/releases/latest" | grep -i "x-ratelimit" || echo "No headers found"
+          
+          echo ""
+          echo "=== Unauthenticated Request Rate Limits ==="
+          curl -i "https://api.github.com/repos/jandelgado/gcov2lcov/releases/latest" | grep -i "x-ratelimit" || echo "No headers found"
