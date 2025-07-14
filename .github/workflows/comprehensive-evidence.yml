@@ -1,0 +1,136 @@
+name: Comprehensive Rate Limit Evidence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ evidence-capture-comprehensive ]
+
+jobs:
+  scenario-a-original-baseline:
+    name: "Scenario A: Original Baseline (60/hour)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout original upstream master
+        uses: actions/checkout@v4
+        with:
+          repository: jandelgado/gcov2lcov-action
+          ref: master
+          path: original-action
+      
+      - name: Add debug logging to original action
+        run: |
+          # Add rate limit logging to the original action
+          sed -i 's|PACKAGE_URL=$(curl "$URL"|RESPONSE_WITH_HEADERS=$(curl -i "$URL")\
+          echo "=== ORIGINAL BASELINE RATE LIMIT HEADERS ==="\
+          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"\
+          echo "=== END RATE LIMIT HEADERS ==="\
+          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n "/^{/,\$p")\
+          PACKAGE_URL=$(echo "$JSON_RESPONSE"|' original-action/action.yml
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init evidence-test
+          echo 'package main
+          func Add(a, b int) int { return a + b }' > main.go
+          echo 'package main
+          import "testing"
+          func TestAdd(t *testing.T) {
+              if Add(2, 3) != 5 { t.Error("failed") }
+          }' > main_test.go
+          go test -coverprofile=coverage.out
+      
+      - name: Test original action (unauthenticated)
+        uses: ./original-action
+        with:
+          working-directory: testdir
+
+  scenario-b-our-implementation-authenticated:
+    name: "Scenario B: Our Implementation (5000/hour)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout our implementation
+        uses: actions/checkout@v4
+      
+      - name: Add debug logging to our action
+        run: |
+          # Add rate limit logging to our action
+          sed -i 's|PACKAGE_URL=$(curl -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL"|RESPONSE_WITH_HEADERS=$(curl -i -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL")\
+          echo "=== OUR IMPLEMENTATION (AUTHENTICATED) RATE LIMIT HEADERS ==="\
+          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"\
+          echo "=== END RATE LIMIT HEADERS ==="\
+          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n "/^{/,\$p")\
+          PACKAGE_URL=$(echo "$JSON_RESPONSE"|' action.yml
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init evidence-test
+          echo 'package main
+          func Add(a, b int) int { return a + b }' > main.go
+          echo 'package main
+          import "testing"
+          func TestAdd(t *testing.T) {
+              if Add(2, 3) != 5 { t.Error("failed") }
+          }' > main_test.go
+          go test -coverprofile=coverage.out
+      
+      - name: Test our implementation (authenticated with github.token)
+        uses: ./
+        with:
+          working-directory: testdir
+          # Uses default github.token for authentication
+
+  scenario-c-our-implementation-empty-token:
+    name: "Scenario C: Our Implementation - Empty Token (60/hour)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout our implementation
+        uses: actions/checkout@v4
+      
+      - name: Add debug logging to our action
+        run: |
+          # Add rate limit logging to our action
+          sed -i 's|PACKAGE_URL=$(curl -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL"|RESPONSE_WITH_HEADERS=$(curl -i -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL")\
+          echo "=== OUR IMPLEMENTATION (EMPTY TOKEN) RATE LIMIT HEADERS ==="\
+          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"\
+          echo "=== END RATE LIMIT HEADERS ==="\
+          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n "/^{/,\$p")\
+          PACKAGE_URL=$(echo "$JSON_RESPONSE"|' action.yml
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Create test coverage file
+        run: |
+          mkdir -p testdir
+          cd testdir
+          go mod init evidence-test
+          echo 'package main
+          func Add(a, b int) int { return a + b }' > main.go
+          echo 'package main
+          import "testing"
+          func TestAdd(t *testing.T) {
+              if Add(2, 3) != 5 { t.Error("failed") }
+          }' > main_test.go
+          go test -coverprofile=coverage.out
+      
+      - name: Test our implementation (empty token)
+        uses: ./
+        with:
+          working-directory: testdir
+          github-token: ""  # Test with empty token
