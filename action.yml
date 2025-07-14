@@ -35,21 +35,11 @@ runs:
           URL="https://api.github.com/repos/jandelgado/gcov2lcov/releases/tags/${{inputs.version}}"
         fi
         if [ -n "${{ inputs.github-token }}" ]; then
-          echo "Using authenticated GitHub API requests"
-          RESPONSE=$(curl -i -H "Authorization: Bearer ${{ inputs.github-token }}" "$URL")
-          echo "=== AUTHENTICATED REQUEST RATE LIMIT HEADERS ==="
-          echo "$RESPONSE" | grep -i "x-ratelimit" || echo "No rate limit headers found"
-          echo "=== END RATE LIMIT HEADERS ==="
-          JSON_RESPONSE=$(echo "$RESPONSE" | sed -n '/^{/,$p')
-          PACKAGE_URL=$(echo "$JSON_RESPONSE" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
+          echo "Using authenticated GitHub API request"
+          PACKAGE_URL=$(curl -H "Authorization: Bearer ${{ inputs.github-token }}" "$URL" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
         else
-          echo "Using unauthenticated GitHub API requests"
-          RESPONSE=$(curl -i "$URL")
-          echo "=== UNAUTHENTICATED REQUEST RATE LIMIT HEADERS ==="
-          echo "$RESPONSE" | grep -i "x-ratelimit" || echo "No rate limit headers found"
-          echo "=== END RATE LIMIT HEADERS ==="
-          JSON_RESPONSE=$(echo "$RESPONSE" | sed -n '/^{/,$p')
-          PACKAGE_URL=$(echo "$JSON_RESPONSE" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
+          echo "Using unauthenticated GitHub API request" 
+          PACKAGE_URL=$(curl "$URL" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
         fi
         
         # starting with version v1.1.0 gcov2lcov changed it's artefact naming a bit.
