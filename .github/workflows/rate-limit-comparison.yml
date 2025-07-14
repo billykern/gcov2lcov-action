@@ -63,16 +63,6 @@ jobs:
           }' > main_test.go
           go test -coverprofile=coverage.out
       
-      - name: Add debug logging to our action
-        run: |
-          # Add rate limit logging temporarily
-          sed -i 's|PACKAGE_URL=$(curl -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL"|RESPONSE=$(curl -i -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL")\
-          echo "=== AUTHENTICATED REQUEST RATE LIMIT HEADERS ==="\
-          echo "$RESPONSE" | grep -i "x-ratelimit" || echo "No rate limit headers found"\
-          echo "=== END RATE LIMIT HEADERS ==="\
-          JSON_RESPONSE=$(echo "$RESPONSE" | sed -n "/^{/,\$p")\
-          PACKAGE_URL=$(echo "$JSON_RESPONSE"|' action.yml
-      
       - name: Test with authentication (default github.token)
         uses: ./
         with:
@@ -104,16 +94,6 @@ jobs:
               if Add(2, 3) != 5 { t.Error("failed") }
           }' > main_test.go
           go test -coverprofile=coverage.out
-      
-      - name: Add debug logging to our action
-        run: |
-          # Add rate limit logging temporarily for unauthenticated path
-          sed -i 's|PACKAGE_URL=$(curl "$URL"|RESPONSE=$(curl -i "$URL")\
-          echo "=== EMPTY TOKEN FALLBACK RATE LIMIT HEADERS ==="\
-          echo "$RESPONSE" | grep -i "x-ratelimit" || echo "No rate limit headers found"\
-          echo "=== END RATE LIMIT HEADERS ==="\
-          JSON_RESPONSE=$(echo "$RESPONSE" | sed -n "/^{/,\$p")\
-          PACKAGE_URL=$(echo "$JSON_RESPONSE"|' action.yml
       
       - name: Test with empty token (fallback to unauthenticated)
         uses: ./
