@@ -32,7 +32,14 @@ runs:
         fi
         # starting with version v1.1.0 gcov2lcov changed it's artefact naming a bit.
         # we are gentle and support also the old naming convetion
-        PACKAGE_URL=$(curl "$URL" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
+        # Get response with headers for rate limit debugging
+        RESPONSE=$(curl -i "$URL")
+        echo "=== UPSTREAM BASELINE RATE LIMIT HEADERS ==="
+        echo "$RESPONSE" | grep -i "x-ratelimit" || echo "No rate limit headers found"
+        echo "=== END RATE LIMIT HEADERS ==="
+        # Extract JSON response and continue normally
+        JSON_RESPONSE=$(echo "$RESPONSE" | sed -n '/^{/,$p')
+        PACKAGE_URL=$(echo "$JSON_RESPONSE" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
         curl -sLf "$PACKAGE_URL" | tar zxf -
         mv bin/gcov2lcov-linux-amd64 gcov2lcov > /dev/null 2>&1 || true  # before v1.1.0
 
