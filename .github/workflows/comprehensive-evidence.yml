@@ -19,13 +19,24 @@ jobs:
       
       - name: Add debug logging to original action
         run: |
-          # Add rate limit logging to the original action
-          sed -i 's|PACKAGE_URL=$(curl "$URL"|RESPONSE_WITH_HEADERS=$(curl -i "$URL")\
-          echo "=== ORIGINAL BASELINE RATE LIMIT HEADERS ==="\
-          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"\
-          echo "=== END RATE LIMIT HEADERS ==="\
-          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n "/^{/,\$p")\
-          PACKAGE_URL=$(echo "$JSON_RESPONSE"|' original-action/action.yml
+          # Create a modified version of the original action with debug logging
+          cp original-action/action.yml original-action/action.yml.bak
+          # Replace the curl line with debug version
+          cat > /tmp/replacement.txt << 'EOF'
+          RESPONSE_WITH_HEADERS=$(curl -i "$URL")
+          echo "=== ORIGINAL BASELINE RATE LIMIT HEADERS ==="
+          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"
+          echo "=== END RATE LIMIT HEADERS ==="
+          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n '/^{/,$p')
+          PACKAGE_URL=$(echo "$JSON_RESPONSE" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
+          EOF
+          # Replace the line in the action
+          sed -i 's|PACKAGE_URL=$(curl "$URL" .*|PLACEHOLDER_FOR_REPLACEMENT|' original-action/action.yml
+          # Replace the placeholder with our multi-line content
+          sed -i '/PLACEHOLDER_FOR_REPLACEMENT/{
+            r /tmp/replacement.txt
+            d
+          }' original-action/action.yml
       
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -60,13 +71,24 @@ jobs:
       
       - name: Add debug logging to our action
         run: |
-          # Add rate limit logging to our action
-          sed -i 's|PACKAGE_URL=$(curl -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL"|RESPONSE_WITH_HEADERS=$(curl -i -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL")\
-          echo "=== OUR IMPLEMENTATION (AUTHENTICATED) RATE LIMIT HEADERS ==="\
-          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"\
-          echo "=== END RATE LIMIT HEADERS ==="\
-          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n "/^{/,\$p")\
-          PACKAGE_URL=$(echo "$JSON_RESPONSE"|' action.yml
+          # Create a modified version of our action with debug logging
+          cp action.yml action.yml.bak
+          # Replace the curl line with debug version
+          cat > /tmp/replacement.txt << 'EOF'
+          RESPONSE_WITH_HEADERS=$(curl -i -H "Authorization: Bearer ${{ inputs.github-token }}" "$URL")
+          echo "=== OUR IMPLEMENTATION (AUTHENTICATED) RATE LIMIT HEADERS ==="
+          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"
+          echo "=== END RATE LIMIT HEADERS ==="
+          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n '/^{/,$p')
+          PACKAGE_URL=$(echo "$JSON_RESPONSE" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
+          EOF
+          # Replace the line in the action
+          sed -i 's|PACKAGE_URL=$(curl -H "Authorization: Bearer.*|PLACEHOLDER_FOR_REPLACEMENT|' action.yml
+          # Replace the placeholder with our multi-line content
+          sed -i '/PLACEHOLDER_FOR_REPLACEMENT/{
+            r /tmp/replacement.txt
+            d
+          }' action.yml
       
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -102,13 +124,24 @@ jobs:
       
       - name: Add debug logging to our action
         run: |
-          # Add rate limit logging to our action
-          sed -i 's|PACKAGE_URL=$(curl -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL"|RESPONSE_WITH_HEADERS=$(curl -i -H "Authorization: Bearer \${{ inputs.github-token }}" "$URL")\
-          echo "=== OUR IMPLEMENTATION (EMPTY TOKEN) RATE LIMIT HEADERS ==="\
-          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"\
-          echo "=== END RATE LIMIT HEADERS ==="\
-          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n "/^{/,\$p")\
-          PACKAGE_URL=$(echo "$JSON_RESPONSE"|' action.yml
+          # Create a modified version of our action with debug logging
+          cp action.yml action.yml.bak
+          # Replace the curl line with debug version
+          cat > /tmp/replacement.txt << 'EOF'
+          RESPONSE_WITH_HEADERS=$(curl -i -H "Authorization: Bearer ${{ inputs.github-token }}" "$URL")
+          echo "=== OUR IMPLEMENTATION (EMPTY TOKEN) RATE LIMIT HEADERS ==="
+          echo "$RESPONSE_WITH_HEADERS" | grep -i "x-ratelimit" || echo "No rate limit headers found"
+          echo "=== END RATE LIMIT HEADERS ==="
+          JSON_RESPONSE=$(echo "$RESPONSE_WITH_HEADERS" | sed -n '/^{/,$p')
+          PACKAGE_URL=$(echo "$JSON_RESPONSE" | jq -r '[ .assets[] | select(.name | test("gcov2lcov.*linux.amd64.tar.gz")) | .browser_download_url ] | first ')
+          EOF
+          # Replace the line in the action
+          sed -i 's|PACKAGE_URL=$(curl -H "Authorization: Bearer.*|PLACEHOLDER_FOR_REPLACEMENT|' action.yml
+          # Replace the placeholder with our multi-line content
+          sed -i '/PLACEHOLDER_FOR_REPLACEMENT/{
+            r /tmp/replacement.txt
+            d
+          }' action.yml
       
       - name: Setup Go
         uses: actions/setup-go@v5
